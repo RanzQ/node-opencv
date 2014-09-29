@@ -3,7 +3,7 @@ var cv = require('../lib/opencv');
 
 cv.readImage("./mona.png", function(err, im) {
 	salt(im, 3000);
-	im.save("/tmp/salt.png");
+	im.save("./tmp/salt.png");
 });
 
 
