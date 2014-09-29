@@ -66,6 +66,7 @@ class Matrix: public node::ObjectWrap {
     JSFUNC(Canny)
     JSFUNC(Dilate)
     JSFUNC(Erode)
+    JSFUNC(Normalize)
 
     JSFUNC(FindContours)
     JSFUNC(DrawContour)
@@ -107,6 +108,9 @@ class Matrix: public node::ObjectWrap {
     JSFUNC(SetWithMask)
     JSFUNC(MeanWithMask)
     JSFUNC(Shift)
+
+    JSFUNC(Subtract)
+    JSFUNC(CopyMakeBorder)
 /*
     static Handle<Value> Val(const Arguments& args);
     static Handle<Value> RowRange(const Arguments& args);

@@ -73,6 +73,7 @@ Matrix::Init(Handle<Object> target) {
 	NODE_SET_PROTOTYPE_METHOD(constructor, "canny", Canny);
 	NODE_SET_PROTOTYPE_METHOD(constructor, "dilate", Dilate);
 	NODE_SET_PROTOTYPE_METHOD(constructor, "erode", Erode);
+	NODE_SET_PROTOTYPE_METHOD(constructor, "normalize", Normalize);
 
 	NODE_SET_PROTOTYPE_METHOD(constructor, "findContours", FindContours);
 	NODE_SET_PROTOTYPE_METHOD(constructor, "drawContour", DrawContour);
@@ -114,6 +115,9 @@ Matrix::Init(Handle<Object> target) {
     NODE_SET_PROTOTYPE_METHOD(constructor, "setWithMask", SetWithMask);
     NODE_SET_PROTOTYPE_METHOD(constructor, "meanWithMask", MeanWithMask);
     NODE_SET_PROTOTYPE_METHOD(constructor, "shift", Shift);
+
+    NODE_SET_PROTOTYPE_METHOD(constructor, "subtract", Subtract);
+    NODE_SET_PROTOTYPE_METHOD(constructor, "copyMakeBorder", CopyMakeBorder);
 
 
 	target->Set(String::NewSymbol("Matrix"), m->GetFunction());
@@ -1182,8 +1186,11 @@ Matrix::Canny(const v8::Arguments& args) {
 	Matrix *self = ObjectWrap::Unwrap<Matrix>(args.This());
 	int lowThresh = args[0]->NumberValue();
 	int highThresh = args[1]->NumberValue();
-
-	cv::Canny(self->mat, self->mat, lowThresh, highThresh);
+	int apertureSize = 3;
+	if (args.Length() > 2) {
+		apertureSize = args[2]->NumberValue();
+	}
+	cv::Canny(self->mat, self->mat, lowThresh, highThresh, apertureSize);
 
 	return scope.Close(v8::Null());
 }
@@ -1195,22 +1202,52 @@ Matrix::Dilate(const v8::Arguments& args) {
 
 	Matrix *self = ObjectWrap::Unwrap<Matrix>(args.This());
 	int niters = args[0]->NumberValue();
-
-	cv::dilate(self->mat, self->mat, cv::Mat(), cv::Point(-1, -1), niters);
+	int kernelType = cv::MORPH_RECT;
+	int kernelSize = 1;
+	if (args.Length() > 1) {
+		kernelType = args[1]->NumberValue();
+	}
+	if (args.Length() > 2) {
+		kernelSize = args[2]->NumberValue();
+	}
+	cv::Mat kernel = cv::getStructuringElement(kernelType, cv::Size( 2*kernelSize + 1, 2*kernelSize + 1 ));
+	cv::dilate(self->mat, self->mat, kernel, cv::Point(-1, -1), niters);
 
 	return scope.Close(v8::Null());
 }
 
 Handle<Value>
 Matrix::Erode(const v8::Arguments& args) {
-    HandleScope scope;
+	HandleScope scope;
 
-    Matrix *self = ObjectWrap::Unwrap<Matrix>(args.This());
-    int niters = args[0]->NumberValue();
+	Matrix *self = ObjectWrap::Unwrap<Matrix>(args.This());
+	int niters = args[0]->NumberValue();
+	int kernelType = cv::MORPH_RECT;
+	int kernelSize = 1;
+	if (args.Length() > 1) {
+		kernelType = args[1]->NumberValue();
+	}
+	if (args.Length() > 2) {
+		kernelSize = args[2]->NumberValue();
+	}
+	cv::Mat kernel = cv::getStructuringElement(kernelType, cv::Size( 2*kernelSize + 1, 2*kernelSize + 1 ));
+	cv::erode(self->mat, self->mat, kernel, cv::Point(-1, -1), niters);
 
-    cv::erode(self->mat, self->mat, cv::Mat(), cv::Point(-1, -1), niters);
+	return scope.Close(v8::Null());
+}
 
-    return scope.Close(v8::Null());
+Handle<Value>
+Matrix::Normalize(const v8::Arguments& args) {
+	HandleScope scope;
+	cv::Mat normalized;
+
+	Matrix *self = ObjectWrap::Unwrap<Matrix>(args.This());
+	
+	cv::normalize(self->mat, normalized);
+
+	normalized.copyTo(self->mat);
+
+	return scope.Close(v8::Null());
 }
 
 Handle<Value>
@@ -1544,24 +1581,25 @@ Matrix::Threshold(const v8::Arguments& args) {
 //    typ = args[2]->IntegerValue();
     String::AsciiValue typstr(args[2]);
     if (strcmp(*typstr, "Binary") == 0){
-      typ=0;
+      typ = 0;
     }
     if (strcmp(*typstr, "Binary Inverted") == 0){
-      typ=1;
+      typ = 1;
     }
     if (strcmp(*typstr, "Threshold Truncated") == 0){
-      typ=2;
+      typ = 2;
     }
     if (strcmp(*typstr, "Threshold to Zero") == 0){
-      typ=3;
+      typ = 3;
     }
     if (strcmp(*typstr, "Threshold to Zero Inverted") == 0){
-      typ=4;
+      typ = 4;
     }
+    if (strcmp(*typstr, "Otsu") == 0){
+      typ = cv::THRESH_BINARY + cv::THRESH_OTSU;
+    }
+
   }
-
-
-
 	Local<Object> img_to_return = Matrix::constructor->GetFunction()->NewInstance();
 	Matrix *img = ObjectWrap::Unwrap<Matrix>(img_to_return);
 	self->mat.copyTo(img->mat);
@@ -2057,3 +2095,39 @@ Matrix::Shift(const v8::Arguments& args){
 
   return scope.Close(Undefined());
 }
+
+Handle<Value>
+Matrix::Subtract(const v8::Arguments& args){
+
+	// TODO: Implement this so that it returns a new matrix
+	HandleScope scope;
+
+	Matrix *self = ObjectWrap::Unwrap<Matrix>(args.This());
+
+	Matrix *src = ObjectWrap::Unwrap<Matrix>(args[0]->ToObject());
+
+	cv::subtract(self->mat, src->mat, self->mat);
+
+	return scope.Close(v8::Null());
+}
+
+
+Handle<Value>
+Matrix::CopyMakeBorder(const v8::Arguments& args){
+
+	// TODO: Implement this so that it returns a new matrix
+	HandleScope scope;
+
+	Matrix *self = ObjectWrap::Unwrap<Matrix>(args.This());
+
+	int top = args[0]->NumberValue();
+	int bottom = args[1]->NumberValue();
+	int left = args[2]->NumberValue();
+	int right = args[3]->NumberValue();
+
+	cv::copyMakeBorder(self->mat, self->mat, top, bottom, left, right, cv::BORDER_CONSTANT, 0);
+
+	return scope.Close(v8::Null());
+}
+
+
